@@ -1,0 +1,258 @@
+
+<!DOCTYPE html><html lang="en"><head><base href="https://GPTCall.creationengine.com/pitch-shift-mp3/"></head><body>
+
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cozy Pitch Shifting</title>
+    <style>
+        /* Styles remain the same as in the previous version */
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: #FFF5E6;            
+        }
+        .container {
+            text-align: center;
+            background-color: #FFFFE0;
+            border: 5px solid #FFB6C1;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #FF69B4;
+            text-shadow: 2px 2px #FFD700;
+        }
+        #upload, #controls, .button-container {
+            margin-bottom: 20px;
+        }
+        .button-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 5px;
+            background-color: #FFB6C1;
+            border: none;
+            border-radius: 50px;
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .button-container button:hover {
+            transform: scale(1.1);
+            background-color: #FF69B4;
+        }
+        .button-container button:disabled {
+            background-color: #D3D3D3;
+            cursor: not-allowed;
+        }
+        .slider-container, .toggle-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            background-color: #FFF0F5;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .slider-container label, .toggle-container label {
+            width: 120px;
+            text-align: right;
+            margin-right: 10px;
+            color: #8B4513;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 200px;
+            height: 15px;
+            background: #FFE4E1;
+            outline: none;
+            border-radius: 15px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            background: #FF69B4;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+        #upload {
+            background-color: #FFE4E1;
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px dashed #FF69B4;
+        }
+    </style>
+
+
+    <div class="container">
+        <h1>🎵 Pitch Shifting Madness 🎵</h1>
+        <input type="file" id="upload" accept="audio/*">
+        <div id="controls">
+            <div class="slider-container">
+                <label for="pitch">Pitch Shift (0.5 - 2):</label>
+                <input type="range" id="pitch" min="0.5" max="2" value="1" step="0.01">
+            </div>
+            <div class="slider-container">
+                <label for="volume">Volume (0 - 200%):</label>
+                <input type="range" id="volume" min="0" max="2" value="1" step="0.01">
+            </div>
+            <div class="toggle-container">
+                <label for="autoModulateToggle">Auto Modulate Pitch:</label>
+                <input type="checkbox" id="autoModulateToggle">
+            </div>
+            <div class="toggle-container">
+                <label for="loopToggle">Loop Playback:</label>
+                <input type="checkbox" id="loopToggle">
+            </div>
+        </div>
+        <div class="button-container">
+            <button id="playButton">▶️ Play</button>
+            <button id="stopButton" disabled="">⏹️ Stop</button>
+        </div>
+    </div>
+
+    <script>
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let source, buffer, gainNode;
+        let isPlaying = false;
+        let autoModulateInterval;
+        let currentPitch = 1;
+        let targetPitch = 1;
+        let modulationStartTime;
+
+        const playButton = document.getElementById('playButton');
+        const stopButton = document.getElementById('stopButton');
+        const loopToggle = document.getElementById('loopToggle');
+
+        document.getElementById('upload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    audioContext.decodeAudioData(e.target.result, function(decodedData) {
+                        buffer = decodedData;
+                        playButton.disabled = false;
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+
+        function playAudio() {
+            if (isPlaying) {
+                source.stop();
+            }
+            source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.playbackRate.value = currentPitch;
+            source.loop = loopToggle.checked;
+
+            gainNode = audioContext.createGain();
+            gainNode.gain.value = document.getElementById('volume').value;
+
+            source.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            source.start(0);
+            isPlaying = true;
+            playButton.disabled = true;
+            stopButton.disabled = false;
+
+            source.onended = function() {
+                if (!source.loop) {
+                    stopAudio();
+                }
+            };
+        }
+
+        function stopAudio() {
+            if (isPlaying) {
+                source.stop();
+                isPlaying = false;
+                playButton.disabled = false;
+                stopButton.disabled = true;
+            }
+        }
+
+        document.getElementById('pitch').addEventListener('input', function() {
+            currentPitch = parseFloat(this.value);
+            if (isPlaying) {
+                source.playbackRate.setTargetAtTime(currentPitch, audioContext.currentTime, 0.1);
+            }
+        });
+
+        document.getElementById('volume').addEventListener('input', function() {
+            if (isPlaying) {
+                gainNode.gain.setTargetAtTime(parseFloat(this.value), audioContext.currentTime, 0.1);
+            }
+        });
+
+        playButton.addEventListener('click', function() {
+            if (buffer) {
+                playAudio();
+            } else {
+                alert('Please upload an MP3 file first.');
+            }
+        });
+
+        stopButton.addEventListener('click', stopAudio);
+
+        loopToggle.addEventListener('change', function() {
+            if (isPlaying) {
+                source.loop = this.checked;
+            }
+        });
+
+        function autoModulatePitch() {
+            modulationStartTime = Date.now();
+            const startPitch = currentPitch;
+            targetPitch = 0.5 + Math.random() * 1.5; // Random value between 0.5 and 2
+
+            function updatePitch() {
+                const elapsedTime = (Date.now() - modulationStartTime) / 1000; // Convert to seconds
+                if (elapsedTime < 1.5) {
+                    currentPitch = startPitch + (targetPitch - startPitch) * (elapsedTime / 1.5);
+                    document.getElementById('pitch').value = currentPitch;
+                    if (isPlaying) {
+                        source.playbackRate.setValueAtTime(currentPitch, audioContext.currentTime);
+                    }
+                    requestAnimationFrame(updatePitch);
+                } else {
+                    currentPitch = targetPitch;
+                    document.getElementById('pitch').value = currentPitch;
+                    if (isPlaying) {
+                        source.playbackRate.setValueAtTime(currentPitch, audioContext.currentTime);
+                    }
+                }
+            }
+
+            updatePitch();
+        }
+
+        document.getElementById('autoModulateToggle').addEventListener('change', function() {
+            if (this.checked) {
+                autoModulateInterval = setInterval(autoModulatePitch, 1500); // New target every 1.5 seconds
+            } else {
+                clearInterval(autoModulateInterval);
+            }
+        });
+    </script>
+
+
+</body></html>
